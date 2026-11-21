@@ -6,9 +6,8 @@ OLED, aciona um buzzer (com LED indicador) quando a leitura fica fora de uma fai
 tudo pela internet usando o protocolo **MQTT**. Um dashboard web, conectado ao mesmo broker, exibe as
 leituras, envia comandos ao atuador e mede o tempo de resposta do sistema.
 
-> **Aviso:** projeto acadêmico e experimental. Não é dispositivo médico e não deve ser usado para diagnóstico.
 
-- Vídeo de demonstração: `<inserir link do YouTube (não listado)>`
+- Vídeo de demonstração: `apos o final desse video, eu irei inserir o link deste video no youtuber`
 - Simulação no Wokwi: <https://wokwi.com/projects/481328094955146241>
 - Dashboard online: <https://gustavobjonk.github.io/monitor-cardiaco-iot/dashboard/>
 

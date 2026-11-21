@@ -1,0 +1,5 @@
+# Bibliotecas usadas pelo Wokwi (instaladas automaticamente)
+PubSubClient
+Adafruit SSD1306
+Adafruit GFX Library
+ArduinoJson

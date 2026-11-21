@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "author": "Monitor Cardiaco IoT - UPM",
+  "editor": "wokwi",
+  "parts": [
+    { "type": "board-esp32-devkit-c-v4", "id": "esp", "top": 0, "left": 0, "attrs": {} },
+    { "type": "board-ssd1306", "id": "oled1", "top": -112, "left": 163, "attrs": { "i2cAddress": "0x3c" } },
+    { "type": "wokwi-potentiometer", "id": "pot1", "top": 30, "left": -190, "attrs": {} },
+    { "type": "wokwi-slide-switch", "id": "sw1", "top": 160, "left": -150, "attrs": { "value": "1" } },
+    { "type": "wokwi-buzzer", "id": "bz1", "top": 170, "left": 230, "attrs": { "volume": "0.2" } },
+    { "type": "wokwi-led", "id": "led1", "top": 60, "left": 330, "attrs": { "color": "red" } },
+    { "type": "wokwi-resistor", "id": "r1", "top": 140, "left": 300, "rotate": 90, "attrs": { "value": "220" } }
+  ],
+  "connections": [
+    [ "esp:TX", "$serialMonitor:RX", "", [] ],
+    [ "esp:RX", "$serialMonitor:TX", "", [] ],
+    [ "oled1:GND", "esp:GND.2", "black", [] ],
+    [ "oled1:VCC", "esp:3V3", "red", [] ],
+    [ "oled1:SCL", "esp:22", "green", [] ],
+    [ "oled1:SDA", "esp:21", "blue", [] ],
+    [ "pot1:GND", "esp:GND.1", "black", [] ],
+    [ "pot1:VCC", "esp:3V3", "red", [] ],
+    [ "pot1:SIG", "esp:34", "orange", [] ],
+    [ "sw1:1", "esp:GND.1", "black", [] ],
+    [ "sw1:2", "esp:27", "violet", [] ],
+    [ "bz1:1", "esp:GND.3", "black", [] ],
+    [ "bz1:2", "esp:25", "yellow", [] ],
+    [ "led1:A", "esp:26", "red", [] ],
+    [ "led1:C", "r1:1", "black", [] ],
+    [ "r1:2", "esp:GND.3", "black", [] ]
+  ],
+  "dependencies": {}
+}

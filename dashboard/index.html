@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Monitor Cardíaco IoT</title>
+<!-- Cliente MQTT sobre WebSocket seguro (MQTT.js) -->
+<script src="https://unpkg.com/mqtt@5.3.5/dist/mqtt.min.js"></script>
+<style>
+  :root {
+    --bg: #f4f5f7; --card: #ffffff; --ink: #1d2330; --muted: #667085; --line: #e3e6eb;
+    --accent: #c8102e; --ok: #1a7f4b; --warn: #b54708; --btn: #1d2330; --btn-ink: #fff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #12151b; --card: #1b2029; --ink: #e8ebf0; --muted: #98a2b3; --line: #2b313c;
+            --accent: #ff4d5e; --ok: #3ccb7f; --warn: #f79009; --btn: #e8ebf0; --btn-ink: #12151b; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { padding: 18px 16px 6px; max-width: 1100px; margin: auto; }
+  h1 { font-size: 20px; margin: 0; }
+  header p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+  main { max-width: 1100px; margin: auto; padding: 12px 16px 40px;
+         display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+  .card h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 10px; }
+  .wide { grid-column: 1 / -1; }
+  label { font-size: 12px; color: var(--muted); display: block; margin-top: 8px; }
+  input { width: 100%; padding: 7px 9px; border: 1px solid var(--line); border-radius: 6px;
+          background: var(--bg); color: var(--ink); font: inherit; }
+  button { padding: 8px 12px; border: 0; border-radius: 6px; background: var(--btn); color: var(--btn-ink);
+           font: inherit; font-weight: 600; cursor: pointer; }
+  button.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+  button:disabled { opacity: .45; cursor: default; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 10px; }
+  .pill { display: inline-block; padding: 2px 9px; border-radius: 99px; font-size: 12px; font-weight: 600;
+          border: 1px solid var(--line); }
+  .pill.on { color: var(--ok); border-color: var(--ok); }
+  .pill.off { color: var(--muted); }
+  .pill.alarm { color: var(--accent); border-color: var(--accent); }
+  .bpm { font-size: 64px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+  .bpm small { font-size: 18px; color: var(--muted); font-weight: 500; }
+  .heart { color: var(--accent); transition: transform .12s; display: inline-block; }
+  .heart.beat { transform: scale(1.35); }
+  canvas { width: 100%; height: 160px; display: block; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+  th, td { padding: 5px 6px; border-bottom: 1px solid var(--line); text-align: left; }
+  th { color: var(--muted); font-weight: 600; }
+  tfoot td { font-weight: 700; }
+  #log { font: 12px/1.5 ui-monospace, Consolas, monospace; height: 220px; overflow: auto;
+         background: var(--bg); border-radius: 6px; padding: 8px; white-space: pre-wrap; word-break: break-all; }
+  .muted { color: var(--muted); font-size: 12px; }
+</style>
+</head>
+<body>
+<header>
+  <h1><span class="heart" id="heart">&#9829;</span> Monitor Cardíaco IoT — Dashboard MQTT</h1>
+  <p>ESP32 + MAX30102 (simulado no Wokwi) · broker público · uso acadêmico, não clínico</p>
+</header>
+<main>
+  <section class="card">
+    <h2>Conexão</h2>
+    <label for="url">Broker (WebSocket)</label>
+    <input id="url" value="wss://broker.hivemq.com:8884/mqtt">
+    <label for="base">Prefixo dos tópicos</label>
+    <input id="base" value="upm/iot/hr-monitor-01">
+    <div class="row">
+      <button id="btnConnect">Conectar</button>
+      <span class="pill off" id="pBroker">broker: desconectado</span>
+      <span class="pill off" id="pDevice">ESP32: ?</span>
+    </div>
+    <p class="muted" id="devInfo"></p>
+  </section>
+
+  <section class="card">
+    <h2>Frequência cardíaca</h2>
+    <div class="bpm"><span id="bpm">--</span> <small>BPM</small></div>
+    <div class="row">
+      <span class="pill off" id="pFinger">dedo: ?</span>
+      <span class="pill off" id="pAlarm">alarme: ?</span>
+      <span class="muted" id="lastSeen"></span>
+    </div>
+    <canvas id="chart" width="600" height="160"></canvas>
+  </section>
+
+  <section class="card">
+    <h2>Atuador (buzzer + LED)</h2>
+    <div class="row">
+      <button data-cmd="on" class="cmd">Ligar</button>
+      <button data-cmd="off" class="cmd">Silenciar</button>
+      <button data-cmd="auto" class="cmd">Automático</button>
+      <button data-cmd="beep" class="cmd ghost">Bip</button>
+    </div>
+    <div class="row">
+      <span class="pill off" id="pMode">modo: ?</span>
+      <span class="pill off" id="pOut">saída: ?</span>
+    </div>
+    <label>Faixa de alarme (BPM)</label>
+    <div class="row" style="margin-top:4px">
+      <input id="min" type="number" value="50" style="width:80px">
+      <input id="max" type="number" value="120" style="width:80px">
+      <button id="btnLimits" class="ghost">Enviar faixa</button>
+    </div>
+  </section>
+
+  <section class="card wide">
+    <h2>Medição de tempo de resposta</h2>
+    <p class="muted">
+      <b>Atuador:</b> o dashboard publica <code>beep</code> com um id e mede o tempo até receber a confirmação do ESP32
+      (ida e volta, RTT). Tempo comando&rarr;acionamento estimado = RTT/2 + tempo de acionamento no ESP32.
+      <b>Sensor:</b> antes de cada leitura mede-se o RTT com <code>ping</code>; tempo detecção&rarr;recebimento estimado =
+      tempo de processamento no ESP32 (<code>proc_us</code>) + RTT/2. Usar o RTT evita depender do relógio do
+      ESP32, que no simulador atrasa quando a simulação roda abaixo de 100 %.
+    </p>
+    <div class="row">
+      <button id="btnMeasAct">Medir atuador (4x)</button>
+      <button id="btnMeasSen">Medir sensor (4x)</button>
+      <button id="btnCsv" class="ghost">Exportar CSV</button>
+      <button id="btnClear" class="ghost">Limpar</button>
+      <span class="muted" id="measStatus"></span>
+    </div>
+    <table style="margin-top:10px">
+      <thead><tr><th>Nº</th><th>Sensor/atuador</th><th>RTT (ms)</th><th>No ESP32 (ms)</th>
+        <th>Tempo de resposta (ms)</th><th>Horário</th></tr></thead>
+      <tbody id="tbody"></tbody>
+      <tfoot id="tfoot"></tfoot>
+    </table>
+  </section>
+
+  <section class="card wide">
+    <h2>Mensagens MQTT</h2>
+    <div id="log"></div>
+  </section>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let client = null, base = '';
+const series = [];               // últimos BPM para o gráfico
+const waiters = [];              // promessas aguardando mensagens específicas
+const results = [];              // medições de latência
+let lastRtt = null;
+
+function log(dir, topic, msg) {
+  const t = new Date().toLocaleTimeString('pt-BR', { hour12: false }) + '.' +
+            String(Date.now() % 1000).padStart(3, '0');
+  const el = $('log');
+  el.textContent += `${t} ${dir} ${topic}  ${msg}\n`;
+  if (el.textContent.length > 40000) el.textContent = el.textContent.slice(-30000);
+  el.scrollTop = el.scrollHeight;
+}
+
+function pill(id, text, cls) { const p = $(id); p.textContent = text; p.className = 'pill ' + cls; }
+
+function publish(sub, obj, opts = { qos: 1 }) {
+  const payload = typeof obj === 'string' ? obj : JSON.stringify(obj);
+  client.publish(`${base}/${sub}`, payload, opts);
+  log('→', `${base}/${sub}`, payload);
+}
+
+// Espera a próxima mensagem que satisfaz `match`, com timeout.
+function waitFor(match, timeout = 10000) {
+  return new Promise((resolve, reject) => {
+    const w = { match, resolve };
+    waiters.push(w);
+    setTimeout(() => {
+      const i = waiters.indexOf(w);
+      if (i >= 0) { waiters.splice(i, 1); reject(new Error('timeout')); }
+    }, timeout);
+  });
+}
+
+function connect() {
+  if (client) { client.end(true); client = null; }
+  base = $('base').value.trim().replace(/\/$/, '');
+  pill('pBroker', 'broker: conectando...', 'off');
+  client = mqtt.connect($('url').value.trim(), {
+    clientId: 'dash-' + Math.random().toString(16).slice(2, 10), clean: true, reconnectPeriod: 3000,
+  });
+  client.on('connect', () => {
+    pill('pBroker', 'broker: conectado', 'on');
+    client.subscribe(`${base}/#`, { qos: 1 });
+    log('✓', 'broker', 'conectado; inscrito em ' + base + '/#');
+  });
+  client.on('close', () => pill('pBroker', 'broker: desconectado', 'off'));
+  client.on('error', (e) => log('!', 'erro', e.message));
+  client.on('message', onMessage);
+}
+
+function onMessage(topic, buf) {
+  const now = performance.now(), wall = Date.now();
+  const text = buf.toString();
+  let data = null;
+  try { data = JSON.parse(text); } catch { /* texto puro */ }
+  const sub = topic.slice(base.length + 1);
+  if (!(sub === 'bpm' && data && !data.finger)) log('←', topic, text);
+
+  for (let i = waiters.length - 1; i >= 0; i--) {
+    if (waiters[i].match(sub, data, text)) {
+      const w = waiters.splice(i, 1)[0];
+      w.resolve({ now, wall, data, text });
+    }
+  }
+
+  if (!data) return;
+  if (sub === 'status') {
+    pill('pDevice', 'ESP32: ' + (data.online ? 'online' : 'offline'), data.online ? 'on' : 'off');
+    $('devInfo').textContent = data.online
+      ? `IP ${data.ip} · sensor ${data.sensor} · faixa ${data.min}-${data.max} BPM` : '';
+  } else if (sub === 'bpm') {
+    $('lastSeen').textContent = 'última leitura ' + new Date(wall).toLocaleTimeString('pt-BR');
+    pill('pFinger', data.finger ? 'dedo: presente' : 'dedo: ausente', data.finger ? 'on' : 'off');
+    pill('pAlarm', data.alarm ? 'ALARME' : 'alarme: não', data.alarm ? 'alarm' : 'off');
+    if (data.finger && data.bpm > 0) {
+      $('bpm').textContent = data.bpm;
+      series.push(data.bpm); if (series.length > 60) series.shift();
+      const h = $('heart'); h.classList.add('beat'); setTimeout(() => h.classList.remove('beat'), 150);
+    } else { $('bpm').textContent = '--'; }
+    drawChart();
+  } else if (sub === 'buzzer/state') {
+    pill('pMode', 'modo: ' + data.mode, 'on');
+    pill('pOut', data.output ? 'saída: LIGADA' : 'saída: desligada', data.output ? 'alarm' : 'off');
+    pill('pAlarm', data.alarm ? 'ALARME' : 'alarme: não', data.alarm ? 'alarm' : 'off');
+  }
+}
+
+function drawChart() {
+  const c = $('chart'), g = c.getContext('2d');
+  const W = c.width, H = c.height, css = getComputedStyle(document.documentElement);
+  g.clearRect(0, 0, W, H);
+  const lo = 30, hi = 180, y = (v) => H - 10 - (v - lo) / (hi - lo) * (H - 20);
+  g.strokeStyle = css.getPropertyValue('--line'); g.lineWidth = 1;
+  g.fillStyle = css.getPropertyValue('--muted'); g.font = '11px system-ui';
+  [50, 120].forEach((v) => { g.beginPath(); g.setLineDash([4, 4]); g.moveTo(30, y(v)); g.lineTo(W, y(v));
+    g.stroke(); g.fillText(v, 4, y(v) + 4); });
+  g.setLineDash([]);
+  if (series.length < 2) return;
+  g.strokeStyle = css.getPropertyValue('--accent'); g.lineWidth = 2; g.beginPath();
+  series.forEach((v, i) => { const x = 30 + i * (W - 34) / 59; i ? g.lineTo(x, y(v)) : g.moveTo(x, y(v)); });
+  g.stroke();
+}
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+async function ping() {
+  const id = 'p' + Date.now();
+  const t0 = performance.now();
+  const wait = waitFor((sub, d) => sub === 'pong' && d && d.id === id);
+  client.publish(`${base}/ping`, JSON.stringify({ id }), { qos: 0 });
+  const r = await wait;
+  return r.now - t0;
+}
+
+function addResult(r) {
+  results.push(r);
+  renderTable();
+}
+
+function renderTable() {
+  const f = (v) => (v == null || isNaN(v) ? '—' : v.toFixed(1));
+  $('tbody').innerHTML = results.map((r, i) =>
+    `<tr><td>${i + 1}</td><td>${r.comp}</td><td>${f(r.rtt)}</td><td>${f(r.esp)}</td>` +
+    `<td><b>${f(r.resp)}</b></td><td>${r.hora}</td></tr>`).join('');
+  const groups = {};
+  results.forEach((r) => (groups[r.comp] ||= []).push(r.resp));
+  $('tfoot').innerHTML = Object.entries(groups).map(([k, v]) =>
+    `<tr><td></td><td>Média — ${k}</td><td></td><td></td><td>${f(v.reduce((a, b) => a + b, 0) / v.length)}</td>` +
+    `<td>n=${v.length}</td></tr>`).join('');
+}
+
+async function measureActuator() {
+  for (let i = 1; i <= 4; i++) {
+    $('measStatus').textContent = `atuador: medição ${i}/4...`;
+    const id = 'm' + Date.now();
+    const t0 = performance.now(), wall0 = Date.now();
+    const wait = waitFor((sub, d) => sub === 'buzzer/state' && d && d.id === id);
+    publish('buzzer/set', { state: 'beep', id });
+    const r = await wait;
+    const rtt = r.now - t0, esp = (r.data.act_us || 0) / 1000;
+    addResult({ comp: 'Atuador (buzzer)', rtt, esp, resp: rtt / 2 + esp,
+                hora: new Date().toLocaleTimeString('pt-BR') });
+    await sleep(2000);
+  }
+}
+
+async function measureSensor() {
+  for (let i = 1; i <= 4; i++) {
+    $('measStatus').textContent = `sensor: medição ${i}/4 (dedo deve estar no sensor)...`;
+    const rtt = await ping();
+    const r = await waitFor((sub, d) => sub === 'bpm' && d && d.finger && d.bpm > 0);
+    const esp = (r.data.proc_us || 0) / 1000;
+    addResult({ comp: 'Sensor (MAX30102 simulado)', rtt, esp, resp: esp + rtt / 2,
+                hora: new Date().toLocaleTimeString('pt-BR') });
+    await sleep(1500);
+  }
+}
+
+async function runMeasure(fn) {
+  if (!client || !client.connected) return alert('Conecte ao broker primeiro.');
+  document.querySelectorAll('#btnMeasAct,#btnMeasSen').forEach((b) => (b.disabled = true));
+  try { await fn(); $('measStatus').textContent = 'concluído'; }
+  catch (e) { $('measStatus').textContent = 'falhou: ' + e.message + ' (ESP32 online?)'; }
+  document.querySelectorAll('#btnMeasAct,#btnMeasSen').forEach((b) => (b.disabled = false));
+}
+
+function exportCsv() {
+  const head = 'n,componente,rtt_ms,esp32_ms,tempo_resposta_ms,horario';
+  const rows = results.map((r, i) => [i + 1, r.comp, r.rtt.toFixed(2), r.esp.toFixed(3), r.resp.toFixed(2),
+    r.hora].join(','));
+  const blob = new Blob([[head, ...rows].join('\n')], { type: 'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = 'medicoes_latencia.csv'; a.click();
+}
+
+$('btnConnect').onclick = connect;
+document.querySelectorAll('.cmd').forEach((b) => (b.onclick = () => {
+  if (client && client.connected) publish('buzzer/set', { state: b.dataset.cmd, id: 'u' + Date.now() });
+}));
+$('btnLimits').onclick = () => client && client.connected &&
+  publish('config/set', { min: +$('min').value, max: +$('max').value });
+$('btnMeasAct').onclick = () => runMeasure(measureActuator);
+$('btnMeasSen').onclick = () => runMeasure(measureSensor);
+$('btnCsv').onclick = exportCsv;
+$('btnClear').onclick = () => { results.length = 0; renderTable(); };
+drawChart();
+</script>
+</body>
+</html>

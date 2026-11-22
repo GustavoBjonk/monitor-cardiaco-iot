@@ -27,7 +27,7 @@ navegador e não sofre esse desvio.
 ## Resultados
 
 Medições realizadas em 20/11/2026 (Wokwi → broker.hivemq.com; simulação entre 45 % e 62 % da velocidade real).
-Dados brutos em [`img/resultados/medicoes_latencia.csv`](img/resultados/medicoes_latencia.csv).
+Dados brutos em [`img/medicoes_latencia.csv`](img/medicoes_latencia.csv).
 
 | Nº medida | Sensor/atuador | RTT (ms) | No ESP32 (ms) | Tempo de resposta (ms) |
 |---|---|---|---|---|
@@ -42,7 +42,7 @@ Dados brutos em [`img/resultados/medicoes_latencia.csv`](img/resultados/medicoes
 | 4 | Atuador (buzzer) | 692,9 | 2,10 | 348,6 |
 | | **Média — atuador** | | | **357,1** |
 
-![Tempo de resposta](img/resultados/latencia.png)
+![Tempo de resposta](img/latencia.png)
 
 Quase todo o tempo vem da rede: gateway do Wokwi, internet e broker público. O processamento no ESP32 fica
 abaixo de 1 ms no sensor e em cerca de 2 ms no atuador.
@@ -51,6 +51,6 @@ abaixo de 1 ms no sensor e em cerca de 2 ms no atuador.
 
 | Estado normal (74 BPM) | Alarme (30 BPM) |
 |---|---|
-| ![normal](img/resultados/wokwi_normal.png) | ![alarme](img/resultados/wokwi_alarme.png) |
+| ![normal](img/wokwi_normal.png) | ![alarme](img/wokwi_alarme.png) |
 
-![Dashboard](img/resultados/dashboard_medicoes.png)
+![Dashboard](img/dashboard_medicoes.png)

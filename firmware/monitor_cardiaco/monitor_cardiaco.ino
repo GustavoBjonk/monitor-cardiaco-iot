@@ -1,27 +1,3 @@
-/*
- * ============================================================================
- *  Monitor de Frequência Cardíaca IoT — ESP32 + MQTT
- *  Universidade Presbiteriana Mackenzie — Objetos Inteligentes Conectados
- * ============================================================================
- *
- *  Sensor ....: MAX30102 (modo real) ou potenciômetro + chave (modo simulado,
- *               usado no Wokwi, que não possui o MAX30102 na biblioteca).
- *  Atuadores .: buzzer (alerta sonoro) + LED vermelho que espelha o buzzer.
- *  Display ...: OLED 0,96" SSD1306 (I2C).
- *  Rede ......: Wi-Fi + MQTT (PubSubClient) em um broker público.
- *
- *  Tópicos MQTT (TOPIC_BASE = "upm/iot/hr-monitor-01" por padrão):
- *    <base>/bpm           (pub)  leitura a cada batimento detectado (JSON)
- *    <base>/status        (pub)  online/offline, retido, com Last Will
- *    <base>/buzzer/state  (pub)  estado do atuador, retido, com eco do id
- *    <base>/buzzer/set    (sub)  comandos: on | off | auto | beep
- *    <base>/config/set    (sub)  limites de alarme: {"min":50,"max":120}
- *    <base>/ping          (sub)  eco imediato em <base>/pong (mede RTT)
- *    <base>/pong          (pub)
- *
- *  Uso acadêmico/experimental. NÃO é dispositivo médico.
- * ============================================================================
- */
 
 #include <WiFi.h>
 #include <PubSubClient.h>

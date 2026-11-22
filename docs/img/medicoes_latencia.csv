@@ -1,0 +1,9 @@
+n,componente,rtt_ms,esp32_ms,tempo_resposta_ms,horario
+1,Atuador (buzzer),675.30,2.124,339.77,20:44:01
+2,Atuador (buzzer),717.90,2.100,361.05,20:44:04
+3,Atuador (buzzer),753.60,2.055,378.86,20:44:07
+4,Atuador (buzzer),692.90,2.097,348.55,20:44:09
+5,Sensor (MAX30102 simulado),622.60,0.862,312.16,20:44:13
+6,Sensor (MAX30102 simulado),578.30,0.881,290.03,20:44:16
+7,Sensor (MAX30102 simulado),596.90,0.882,299.33,20:44:18
+8,Sensor (MAX30102 simulado),652.50,0.882,327.13,20:44:21

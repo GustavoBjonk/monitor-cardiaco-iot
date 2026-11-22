@@ -7,7 +7,7 @@ tudo pela internet usando o protocolo **MQTT**. Um dashboard web, conectado ao m
 leituras, envia comandos ao atuador e mede o tempo de resposta do sistema.
 
 
-- Vídeo de demonstração: `apos o final desse video, eu irei inserir o link deste video no youtuber`
+- Vídeo de demonstração: <https://youtu.be/Ebqnw0Q5lwQ>
 - Simulação no Wokwi: <https://wokwi.com/projects/481328094955146241>
 - Dashboard online: <https://gustavobjonk.github.io/monitor-cardiaco-iot/dashboard/>
 
